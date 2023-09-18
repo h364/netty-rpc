@@ -1,17 +1,37 @@
 package com.hh.netty.nettydemo.dubborpc.netty;
 
-import com.hh.netty.nettydemo.dubborpc.provider.HelloServiceImpl;
+import com.hh.netty.nettydemo.dubborpc.ioc.ClassPathXmlApplicationContext;
+import com.hh.netty.nettydemo.dubborpc.protocol.MessageProtocol;
+import com.hh.netty.nettydemo.dubborpc.publicinterface.HelloService;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
 
-public class NettyServerHandler extends ChannelInboundHandlerAdapter {
+import java.nio.charset.StandardCharsets;
+
+public class NettyServerHandler extends SimpleChannelInboundHandler<MessageProtocol> {
+    public static ClassPathXmlApplicationContext context;
+
+    static {
+        try {
+            context = new ClassPathXmlApplicationContext();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        System.out.println("msg：" + msg);
-        HelloServiceImpl helloService = new HelloServiceImpl();
-        String result = helloService.hello(msg.toString().substring(msg.toString().lastIndexOf("#") + 1));
-        ctx.writeAndFlush(result);
+    protected void channelRead0(ChannelHandlerContext channelHandlerContext, MessageProtocol messageProtocol) throws Exception {
+        byte[] content = messageProtocol.getContent();
+        System.out.println("服务端收到消息：" + new String(content));
+        HelloService service = (HelloService) context.getBean("helloServiceImpl");
+
+        String result = service.hello(new String(content));
+        System.out.println(result);
+        MessageProtocol msg = new MessageProtocol();
+
+        msg.setContent(result.getBytes(StandardCharsets.UTF_8));
+        msg.setLen(result.getBytes(StandardCharsets.UTF_8).length);
+        channelHandlerContext.writeAndFlush(msg);
     }
 
     @Override
